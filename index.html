@@ -473,20 +473,27 @@
     let recognition = SpeechRecognition ? new SpeechRecognition() : null;
     if(recognition){
       recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.interimResults = true; // Activar resultados parciales para respuesta más rápida
+      recognition.maxAlternatives = 1;
       recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join('');
         guessEl.value = transcript;
-        status('');
-        btnVoice.classList.remove('listening');
-        btnVoice.disabled = false;
-        check();
+        if(event.results[0].isFinal){
+          status('');
+          btnVoice.classList.remove('listening');
+          btnVoice.disabled = false;
+          check();
+        }
       };
       recognition.onerror = (event) => {
         btnVoice.classList.remove('listening');
         btnVoice.disabled = false;
         if(event.error === 'not-allowed'){
           status('Permiso de micrófono denegado. Habilítalo en la configuración del navegador.', 'bad');
+        } else if(event.error === 'no-speech'){
+          status('No se detectó voz. Habla más alto o revisa el micrófono.', 'bad');
         } else {
           status('Error en reconocimiento de voz: ' + event.error, 'bad');
         }
@@ -494,6 +501,10 @@
       recognition.onend = () => {
         btnVoice.classList.remove('listening');
         btnVoice.disabled = false;
+        if(guessEl.value){
+          status('');
+          check();
+        }
       };
     }
     function startRecognition(){
