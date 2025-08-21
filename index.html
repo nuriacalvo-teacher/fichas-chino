@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fichas de Chino con Audio — Adivina y Voltea</title>
+  <style>
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --card:#111827ee; /* gray-900 */
+      --cardEdge:#1f2937; /* gray-800 */
+      --accent:#22d3ee; /* cyan-400 */
+      --ok:#22c55e; /* green-500 */
+      --bad:#ef4444; /* red-500 */
+      --muted:#94a3b8; /* slate-400 */
+      --text:#e5e7eb; /* gray-200 */
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      background:radial-gradient(1400px 900px at 85% -15%,#1e293b 0%,#0f172a 70%);
+      color:var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      padding:32px;
+    }
+    .app{
+      width:min(980px,100%);
+      display:flex;
+      flex-direction:column;
+      flex-grow:1;
+    }
+    header{
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+      align-items:center;
+      margin-bottom:64px; /* Más espacio para evitar superposición */
+      margin-top:24px;
+    }
+    h1{
+      font-weight:800;
+      font-size:clamp(30px,4.5vw,44px);
+      letter-spacing:.4px;
+      margin:0;
+    }
+    .hint{
+      color:var(--muted);
+      font-size:1.05rem;
+      text-align:center;
+    }
+    .studentInfo{
+      display:flex;
+      gap:14px;
+      flex-wrap:wrap;
+      width:100%;
+      justify-content:center;
+    }
+    .studentInfo input{
+      flex:1;
+      background:#0b1220;
+      border:1px solid #1f2937;
+      color:var(--text);
+      padding:12px 16px;
+      border-radius:12px;
+      font-size:18px;
+    }
+    main{
+      flex-grow:1;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }
+    .board{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:24px;
+    }
+    @media (max-width:850px){
+      .board{grid-template-columns:1fr;}
+    }
+    .cardWrap{
+      perspective:1200px;
+      transition:transform .3s ease;
+    }
+    .cardWrap:hover{
+      transform:scale(1.02);
+    }
+    .card{
+      position:relative;
+      width:100%;
+      min-height:400px;
+      background:transparent;
+      border-radius:20px;
+    }
+    .inner{
+      position:relative;
+      width:100%;
+      height:100%;
+      transform-style:preserve-3d;
+      transition:transform .6s cubic-bezier(.2,.8,.2,1);
+    }
+    .card.flipped .inner{
+      transform:rotateY(180deg);
+    }
+    .face{
+      position:absolute;
+      inset:0;
+      background:linear-gradient(180deg,rgba(17,24,39,.98),rgba(17,24,39,.88));
+      border:1px solid var(--cardEdge);
+      border-radius:20px;
+      box-shadow:0 12px 40px rgba(0,0,0,.3), 0 0 10px rgba(34,211,238,.1);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:20px;
+      backface-visibility:hidden;
+      padding:32px;
+    }
+    .back{
+      transform:rotateY(180deg);
+    }
+    .hanzi{
+      font-size:clamp(64px,14vw,128px);
+      font-weight:800;
+      line-height:1.05;
+      text-align:center;
+      unicode-bidi:plaintext;
+    }
+    .pinyin{
+      font-size:clamp(24px,4.5vw,36px);
+      opacity:.9;
+    }
+    .meaning{
+      font-size:clamp(22px,4vw,32px);
+      opacity:.9;
+      text-align:center;
+    }
+    .controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:14px;
+      margin-top:18px;
+    }
+    button, .ghostBtn{
+      appearance:none;
+      border:1px solid transparent;
+      background:var(--cardEdge);
+      color:var(--text);
+      padding:16px 18px;
+      border-radius:16px;
+      font-size:19px;
+      cursor:pointer;
+      transition:.2s ease;
+    }
+    button:hover, .ghostBtn:hover{
+      transform:translateY(-2px);
+      box-shadow:0 10px 20px rgba(0,0,0,.3);
+    }
+    button:disabled{
+      opacity:.5;
+      cursor:not-allowed;
+      transform:none;
+      box-shadow:none;
+    }
+    .primary{
+      background:linear-gradient(135deg,#1e40af,#38bdf8);
+      border-color:#38bdf888;
+    }
+    .success{
+      background:linear-gradient(135deg,#15803d,#4ade80);
+      border-color:#4ade8088;
+    }
+    .danger{
+      background:linear-gradient(135deg,#b91c1c,#f87171);
+      border-color:#f8717188;
+    }
+    .voice{
+      background:linear-gradient(135deg,#6d28d9,#a78bfa);
+      border-color:#a78bfa88;
+    }
+    .voice.listening{
+      background:linear-gradient(135deg,#a855f7,#d8b4fe);
+      animation:pulse 1.5s infinite;
+    }
+    @keyframes pulse{
+      0%{transform:scale(1);}
+      50%{transform:scale(1.05);}
+      100%{transform:scale(1);}
+    }
+    .panel{
+      background:linear-gradient(180deg,rgba(17,24,39,.82),rgba(2,6,23,.62));
+      border:1px solid var(--cardEdge);
+      border-radius:18px;
+      padding:22px;
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+    .guessRow{
+      display:flex;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+    input[type="text"]{
+      flex:1;
+      background:#0b1220;
+      border:1px solid #1f2937;
+      color:var(--text);
+      padding:16px 18px;
+      border-radius:16px;
+      font-size:21px;
+    }
+    .status{
+      min-height:28px;
+      font-weight:600;
+      font-size:19px;
+    }
+    .status.ok{
+      color:var(--ok);
+    }
+    .status.bad{
+      color:var(--bad);
+    }
+    .tags{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:10px;
+    }
+    .tag{
+      font-size:14px;
+      color:var(--muted);
+      border:1px dashed #334155;
+      padding:6px 12px;
+      border-radius:999px;
+    }
+    .row{
+      display:flex;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+    .spacer{
+      flex:1;
+    }
+    .keyHelp{
+      font-size:14px;
+      color:var(--muted);
+    }
+    .muted{
+      color:var(--muted);
+    }
+    .counter{
+      font-variant-numeric:tabular-nums;
+    }
+    footer{
+      margin-top:24px;
+      text-align:center;
+      color:var(--muted);
+      font-size:1.05rem;
+    }
+    .leaderboard{
+      background:linear-gradient(180deg,rgba(17,24,39,.98),rgba(17,24,39,.88));
+      border:1px solid var(--cardEdge);
+      border-radius:18px;
+      padding:22px;
+      margin-top:24px;
+      width:100%;
+      max-height:400px;
+      overflow-y:auto;
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:16px;
+    }
+    th, td{
+      padding:12px;
+      text-align:left;
+      border-bottom:1px solid var(--cardEdge);
+    }
+    th{
+      background:var(--cardEdge);
+      font-weight:600;
+    }
+    tr:last-child td{
+      border-bottom:none;
+    }
+    .leaderboard button{
+      margin-top:16px;
+      width:100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Fichas de Chino con Audio</h1>
+      <div class="hint">Espacio: ▶︎ Audio · Enter: Comprobar · N: Siguiente · F: Voltear · V: Voz</div>
+      <div class="studentInfo">
+        <input id="studentName" type="text" placeholder="Nombre..." autocomplete="off" />
+        <input id="studentSurname" type="text" placeholder="Apellido..." autocomplete="off" />
+      </div>
+    </header>
+    <main>
+      <div class="board">
+        <!-- Card -->
+        <div class="cardWrap">
+          <div id="card" class="card">
+            <div class="inner">
+              <section class="face front">
+                <div id="frontContent"></div>
+                <div class="tags">
+                  <span class="tag">Chino simplificado</span>
+                  <span class="tag">Pronunciación con TTS</span>
+                </div>
+                <div class="controls">
+                  <button class="primary" id="btnPlay">▶︎ Audio</button>
+                  <button id="btnFlip">↻ Voltear</button>
+                </div>
+              </section>
+              <section class="face back">
+                <div id="backContent"></div>
+                <div class="controls">
+                  <button class="primary" id="btnPlayBack">▶︎ Audio</button>
+                  <button id="btnFlipBack">↺ Volver</button>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+        <!-- Side panel -->
+        <aside class="panel">
+          <div class="row">
+            <div><strong>Progreso:</strong> <span class="counter" id="progress">1 / 1</span></div>
+            <div><strong>Puntuación:</strong> <span class="counter" id="score">0</span></div>
+            <div class="spacer"></div>
+            <div><strong>Aciertos:</strong> <span class="counter" id="hits">0</span></div>
+            <div><strong>Fallos:</strong> <span class="counter" id="fails">0</span></div>
+          </div>
+          <div class="guessRow">
+            <input id="guess" type="text" placeholder="Escribe o di el significado en español o el pinyin…" autocomplete="off" />
+            <button class="success" id="btnCheck">Comprobar</button>
+            <button class="voice" id="btnVoice">🎤 Voz</button>
+          </div>
+          <div id="status" class="status" aria-live="polite"></div>
+          <div class="controls">
+            <button id="btnNext">Siguiente</button>
+            <button id="btnShuffle">Barajar</button>
+            <button id="btnOnlyWrong" class="ghostBtn">Solo falladas: <span id="onlyWrongState">off</span></button>
+            <button id="btnToggleMode">Cambiar a Español a Chino</button>
+            <button id="btnSaveResults" class="danger">Finalizar y Guardar Resultados</button>
+            <button id="btnShowLeaderboard" class="primary">Ver Clasificación</button>
+          </div>
+          <details>
+            <summary>Opciones de voz</summary>
+            <div class="row">
+              <label class="muted">Velocidad <input id="rate" type="range" min=".7" max="1.4" step=".1" value="1.1"/></label>
+              <label class="muted">Tono <input id="pitch" type="range" min=".8" max="1.2" step=".1" value="1.1"/></label>
+              <label class="muted">Volumen <input id="volume" type="range" min=".2" max="1" step=".1" value="1"/></label>
+            </div>
+          </details>
+          <p class="keyHelp">Consejo: puedes responder con <em>pinyin</em> (con o sin tildes) o con el significado en español (se aceptan sinónimos sencillos).</p>
+        </aside>
+      </div>
+      <div id="leaderboard" class="leaderboard" style="display:none;">
+        <table>
+          <thead>
+            <tr>
+              <th>Apellido</th>
+              <th>Nombre</th>
+              <th>Aciertos</th>
+              <th>Fallos</th>
+              <th>Puntuación</th>
+              <th>Rondas</th>
+              <th>Fichas Falladas</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardBody"></tbody>
+        </table>
+        <button id="btnCopyResults">Copiar Resultados</button>
+      </div>
+    </main>
+    <footer>© 2025 Nuria Calvo</footer>
+  </div>
+  <script>
+    // === Banco de cartas ===
+    const DECK = [
+      {hanzi:"你好", pinyin:"nǐ hǎo", es:["hola","hola!","buenas"]},
+      {hanzi:"您好", pinyin:"nín hǎo", es:["hola","hola (a usted)","buenos días","hola formal","hola a usted"]},
+      {hanzi:"你们好", pinyin:"nǐmen hǎo", es:["hola (a vosotros)","hola a vosotros","hola a ustedes","hola todos"]},
+      {hanzi:"对不起", pinyin:"duìbuqǐ", es:["lo siento","disculpa","perdón"]},
+      {hanzi:"没关系", pinyin:"méi guānxi", es:["no pasa nada","está bien","tranquilo","no hay problema"]},
+      {hanzi:"妈", pinyin:"mā", es:["madre","mamá"]},
+      {hanzi:"马", pinyin:"mǎ", es:["caballo"]},
+      {hanzi:"猫", pinyin:"māo", es:["gato"]},
+      {hanzi:"鱼", pinyin:"yú", es:["pez","pescado"]},
+      {hanzi:"一", pinyin:"yī", es:["uno", "1"]},
+      {hanzi:"二", pinyin:"èr", es:["dos", "2"]},
+      {hanzi:"十", pinyin:"shí", es:["diez", "10"]},
+      {hanzi:"六", pinyin:"liù", es:["seis", "6"]},
+      {hanzi:"上课", pinyin:"shàng kè", es:["empieza la clase","¡empieza la clase!","empieza clase"]},
+      {hanzi:"下课", pinyin:"xià kè", es:["acaba la clase","¡acaba la clase!","termina la clase"]},
+      {hanzi:"现在休息", pinyin:"xiànzài xiūxi", es:["tomad un descanso ahora","descanso ahora","ahora descanso"]},
+      {hanzi:"看黑板", pinyin:"kàn hēibǎn", es:["mirad a la pizarra","miren la pizarra","mirar la pizarra"]},
+      {hanzi:"跟我读", pinyin:"gēn wǒ dú", es:["leed detrás de mí","leed conmigo","repitan conmigo"]},
+      {hanzi:"工", pinyin:"gōng", es:["trabajo","obra"]},
+      {hanzi:"不", pinyin:"bù", es:["no"]},
+      {hanzi:"大", pinyin:"dà", es:["grande"]},
+      {hanzi:"天", pinyin:"tiān", es:["cielo"]}
+    ];
+    const TOTAL_CARDS = DECK.length; // 22
+    const CARD_VALUE = 100 / TOTAL_CARDS; // ~4.545
+    const FAIL_PENALTY = CARD_VALUE / 2; // ~2.273
+    // === Estado ===
+    let queue = [...DECK];
+    let index = 0;
+    let hits = 0, fails = 0, score = 0;
+    let onlyWrong = false;
+    let mode = 'hanzi-to-es';
+    const wrongSet = new Set();
+    let firstRoundCompleted = false;
+    let rondas = 1;
+    let firstHits = 0;
+    let firstFails = 0;
+    // === Utilidades ===
+    const $ = sel => document.querySelector(sel);
+    const frontContent = $('#frontContent');
+    const backContent = $('#backContent');
+    const cardEl = $('#card');
+    const guessEl = $('#guess');
+    const studentNameEl = $('#studentName');
+    const studentSurnameEl = $('#studentSurname');
+    const statusEl = $('#status');
+    const progressEl = $('#progress');
+    const hitsEl = $('#hits');
+    const failsEl = $('#fails');
+    const scoreEl = $('#score');
+    const onlyWrongStateEl = $('#onlyWrongState');
+    const btnToggleMode = $('#btnToggleMode');
+    const btnVoice = $('#btnVoice');
+    const btnSaveResults = $('#btnSaveResults');
+    const btnShowLeaderboard = $('#btnShowLeaderboard');
+    const btnCopyResults = $('#btnCopyResults');
+    const leaderboardEl = $('#leaderboard');
+    const leaderboardBodyEl = $('#leaderboardBody');
+    // Speech Synthesis
+    function speak(text){
+      if(!('speechSynthesis' in window)){
+        status('Tu navegador no soporta síntesis de voz.', 'bad');
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      const voices = speechSynthesis.getVoices();
+      const zhVoice = voices.find(v => /zh|chinese|china/i.test(v.lang)) || voices[0];
+      u.lang = zhVoice ? zhVoice.lang : 'zh-CN';
+      u.voice = zhVoice;
+      u.rate = parseFloat($('#rate').value);
+      u.pitch = parseFloat($('#pitch').value);
+      u.volume = parseFloat($('#volume').value);
+      u.onstart = () => status('Reproduciendo audio...', 'ok');
+      u.onend = () => status('');
+      u.onerror = () => status('Error al reproducir audio.', 'bad');
+      speechSynthesis.speak(u);
+    }
+    // Speech Recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = SpeechRecognition ? new SpeechRecognition() : null;
+    if(recognition){
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        guessEl.value = transcript;
+        status('');
+        btnVoice.classList.remove('listening');
+        btnVoice.disabled = false;
+        check();
+      };
+      recognition.onerror = (event) => {
+        btnVoice.classList.remove('listening');
+        btnVoice.disabled = false;
+        if(event.error === 'not-allowed'){
+          status('Permiso de micrófono denegado. Habilítalo en la configuración del navegador.', 'bad');
+        } else {
+          status('Error en reconocimiento de voz: ' + event.error, 'bad');
+        }
+      };
+      recognition.onend = () => {
+        btnVoice.classList.remove('listening');
+        btnVoice.disabled = false;
+      };
+    }
+    function startRecognition(){
+      if(!recognition){
+        status('Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.', 'bad');
+        return;
+      }
+      if(!window.location.protocol.includes('https') && window.location.hostname !== 'localhost'){
+        status('El reconocimiento de voz requiere HTTPS o localhost.', 'bad');
+        return;
+      }
+      recognition.lang = mode === 'hanzi-to-es' ? 'es-ES' : 'zh-CN';
+      navigator.mediaDevices.getUserMedia({audio: true})
+        .then(() => {
+          btnVoice.classList.add('listening');
+          recognition.start();
+          status('Escuchando...', 'ok');
+          btnVoice.disabled = true;
+        })
+        .catch(err => {
+          if(err.name === 'NotAllowedError'){
+            status('Permiso de micrófono denegado. Habilítalo en la configuración del navegador.', 'bad');
+          } else {
+            status('Error al acceder al micrófono: ' + err.message, 'bad');
+          }
+        });
+    }
+    function stripAccents(s){
+      return s.normalize('NFD').replace(/\p{Diacritic}/gu,'');
+    }
+    function norm(s){
+      return stripAccents(String(s).toLowerCase().trim().replace(/[!¡¿?.,;:]/g,''));
+    }
+    function shuffle(arr){
+      for(let i=arr.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [arr[i],arr[j]]=[arr[j],arr[i]];
+      }
+      return arr;
+    }
+    function status(msg, cls){
+      statusEl.textContent = msg || '';
+      statusEl.className = 'status' + (cls ? ' ' + cls : '');
+    }
+    function updateScore(){
+      let currentScore = hits * CARD_VALUE - fails * FAIL_PENALTY;
+      if(rondas > 1){
+        const corrected = firstFails - wrongSet.size;
+        const bonusPerCorrected = FAIL_PENALTY / (rondas - 1);
+        currentScore += corrected * bonusPerCorrected;
+      }
+      score = Math.min(100, Math.max(0, currentScore));
+      scoreEl.textContent = score.toFixed(1);
+    }
+    function updateCard(){
+      if(queue.length === 0){
+        status('No hay más fichas.', 'bad');
+        return;
+      }
+      const item = queue[index];
+      if(mode === 'hanzi-to-es'){
+        frontContent.innerHTML = `<div class="hanzi">${item.hanzi}</div>`;
+        backContent.innerHTML = `<div class="pinyin">${item.pinyin}</div><div class="meaning">${item.es[0]}</div>`;
+        guessEl.placeholder = "Escribe o di el significado en español o el pinyin…";
+      } else {
+        frontContent.innerHTML = `<div class="meaning">${item.es[0]}</div>`;
+        backContent.innerHTML = `<div class="hanzi">${item.hanzi}</div><div class="pinyin">${item.pinyin}</div>`;
+        guessEl.placeholder = "Escribe o di el pinyin…";
+      }
+      progressEl.textContent = `${index+1} / ${queue.length}`;
+      guessEl.value = '';
+      guessEl.disabled = false;
+      guessEl.focus();
+      status('');
+      cardEl.classList.remove('flipped');
+    }
+    function isCorrect(input, item){
+      const g = norm(input);
+      const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
+      if(mode === 'hanzi-to-es'){
+        const es = item.es.map(norm);
+        return [...pinyins, ...es].includes(g);
+      } else {
+        return pinyins.includes(g);
+      }
+    }
+    function check(){
+      if(!studentNameEl.value.trim() || !studentSurnameEl.value.trim()){
+        status('Escribe tu nombre y apellido primero.', 'bad');
+        studentNameEl.focus();
+        return;
+      }
+      const item = queue[index];
+      const g = guessEl.value;
+      if(!g){ status('Escribe o di una respuesta primero.', 'bad'); return; }
+      if(isCorrect(g, item)){
+        hits++;
+        hitsEl.textContent = hits;
+        wrongSet.delete(item.hanzi);
+        status('¡Correcto! (+' + CARD_VALUE.toFixed(1) + ')', 'ok');
+      }else{
+        fails++;
+        failsEl.textContent = fails;
+        const wrongMsg = mode === 'hanzi-to-es' 
+          ? `No exactamente. Era: ${item.es[0]} · ${item.pinyin} (-${FAIL_PENALTY.toFixed(1)})`
+          : `No exactamente. Era: ${item.pinyin} · ${item.hanzi} (-${FAIL_PENALTY.toFixed(1)})`;
+        status(wrongMsg, 'bad');
+        wrongSet.add(item.hanzi);
+      }
+      updateScore();
+      flip();
+      guessEl.disabled = true;
+    }
+    function next(){
+      if(queue.length === 0){
+        status('No hay más fichas.', 'bad');
+        return;
+      }
+      index = (index + 1) % queue.length;
+      if(index === 0 && !firstRoundCompleted && !onlyWrong){
+        firstRoundCompleted = true;
+        firstHits = hits;
+        firstFails = fails;
+        status('Primera ronda completada. Usa "Solo falladas" para repetir las falladas.', 'ok');
+      }
+      updateCard();
+    }
+    function flip(){ cardEl.classList.toggle('flipped'); }
+    function rebuildQueue(){
+      if(onlyWrong){
+        const wrong = DECK.filter(it => wrongSet.has(it.hanzi));
+        queue = wrong.length ? wrong : [...DECK];
+      }else{
+        queue = [...DECK];
+      }
+      index = 0;
+      updateCard();
+    }
+    function saveResults(){
+      if(!studentNameEl.value.trim() || !studentSurnameEl.value.trim()){
+        status('Escribe tu nombre y apellido primero.', 'bad');
+        studentNameEl.focus();
+        return;
+      }
+      if(queue.length > 0 && index !== 0){
+        status('Completa todas las fichas antes de guardar.', 'bad');
+        return;
+      }
+      const studentName = studentNameEl.value.trim();
+      const studentSurname = studentSurnameEl.value.trim();
+      const failedCards = Array.from(wrongSet).map(hanzi => {
+        const item = DECK.find(it => it.hanzi === hanzi);
+        return `${item.hanzi} (${item.es[0]})`;
+      }).join(', ');
+      const results = JSON.parse(localStorage.getItem('leaderboard') || '[]');
+      results.push({
+        name: studentName,
+        surname: studentSurname,
+        hits: TOTAL_CARDS - wrongSet.size,
+        fails: wrongSet.size,
+        score: score.toFixed(1),
+        rondas,
+        failedCards: failedCards || 'Ninguna'
+      });
+      localStorage.setItem('leaderboard', JSON.stringify(results));
+      status('Resultados guardados. Pulsa "Ver Clasificación" para ver la tabla.', 'ok');
+      rebuildQueue();
+      firstRoundCompleted = false;
+      rondas = 1;
+      hits = 0; fails = 0; score = 0;
+      firstHits = 0; firstFails = 0;
+      hitsEl.textContent = hits;
+      failsEl.textContent = fails;
+      scoreEl.textContent = score;
+      studentNameEl.value = '';
+      studentSurnameEl.value = '';
+      onlyWrong = false;
+      onlyWrongStateEl.textContent = 'off';
+    }
+    function showLeaderboard(){
+      const results = JSON.parse(localStorage.getItem('leaderboard') || '[]');
+      results.sort((a, b) => a.surname.localeCompare(b.surname));
+      leaderboardBodyEl.innerHTML = results.map(r => `
+        <tr>
+          <td>${r.surname}</td>
+          <td>${r.name}</td>
+          <td>${r.hits}</td>
+          <td>${r.fails}</td>
+          <td>${r.score}</td>
+          <td>${r.rondas}</td>
+          <td>${r.failedCards}</td>
+        </tr>
+      `).join('');
+      leaderboardEl.style.display = 'block';
+      btnShowLeaderboard.textContent = 'Ocultar Clasificación';
+      btnShowLeaderboard.removeEventListener('click', showLeaderboard);
+      btnShowLeaderboard.addEventListener('click', hideLeaderboard);
+    }
+    function hideLeaderboard(){
+      leaderboardEl.style.display = 'none';
+      btnShowLeaderboard.textContent = 'Ver Clasificación';
+      btnShowLeaderboard.removeEventListener('click', hideLeaderboard);
+      btnShowLeaderboard.addEventListener('click', showLeaderboard);
+    }
+    function copyResults(){
+      const results = JSON.parse(localStorage.getItem('leaderboard') || '[]');
+      results.sort((a, b) => a.surname.localeCompare(b.surname));
+      const text = results.map(r => `${r.surname}\t${r.name}\t${r.hits}\t${r.fails}\t${r.score}\t${r.rondas}\t${r.failedCards}`).join('\n');
+      navigator.clipboard.writeText(`Apellido\tNombre\tAciertos\tFallos\tPuntuación\tRondas\tFichas Falladas\n${text}`)
+        .then(() => status('Resultados copiados al portapapeles.', 'ok'))
+        .catch(() => status('Error al copiar resultados.', 'bad'));
+    }
+    // === Eventos ===
+    $('#btnPlay').addEventListener('click', () => speak(queue[index].hanzi));
+    $('#btnPlayBack').addEventListener('click', () => speak(queue[index].hanzi));
+    $('#btnFlip').addEventListener('click', flip);
+    $('#btnFlipBack').addEventListener('click', flip);
+    $('#btnCheck').addEventListener('click', check);
+    $('#btnNext').addEventListener('click', next);
+    $('#btnShuffle').addEventListener('click', () => { shuffle(queue); rebuildQueue(); });
+    $('#btnOnlyWrong').addEventListener('click', () => {
+      if(firstRoundCompleted && onlyWrong){
+        status('No puedes desactivar "Solo falladas" después de la primera ronda.', 'bad');
+        return;
+      }
+      onlyWrong = !onlyWrong;
+      if(onlyWrong){
+        rondas++;
+      }
+      onlyWrongStateEl.textContent = onlyWrong ? 'on' : 'off';
+      rebuildQueue();
+    });
+    $('#btnToggleMode').addEventListener('click', () => {
+      mode = mode === 'hanzi-to-es' ? 'es-to-hanzi' : 'hanzi-to-es';
+      btnToggleMode.textContent = mode === 'hanzi-to-es' ? 'Cambiar a Español a Chino' : 'Cambiar a Chino a Español';
+      updateCard();
+    });
+    $('#btnVoice').addEventListener('click', startRecognition);
+    $('#btnSaveResults').addEventListener('click', saveResults);
+    $('#btnShowLeaderboard').addEventListener('click', showLeaderboard);
+    $('#btnCopyResults').addEventListener('click', copyResults);
+    // Accesos rápidos
+    window.addEventListener('keydown', (e) => {
+      if(e.target === guessEl || e.target === studentNameEl || e.target === studentSurnameEl){
+        if(e.key === 'Enter' && e.target === guessEl){check();}
+        return;
+      }
+      if(e.code === 'Space'){
+        e.preventDefault();
+        speak(queue[index].hanzi);
+      }
+      if(e.key.toLowerCase() === 'n'){ next(); }
+      if(e.key.toLowerCase() === 'f'){ flip(); }
+      if(e.key.toLowerCase() === 'v'){ startRecognition(); }
+    });
+    // Cargar voces
+    if('speechSynthesis' in window){
+      let voicesLoaded = false;
+      const loadVoices = () => {
+        if(voicesLoaded) return;
+        const voices = speechSynthesis.getVoices();
+        if(voices.length) voicesLoaded = true;
+      };
+      speechSynthesis.onvoiceschanged = loadVoices;
+      loadVoices();
+    }
+    // Init
+    shuffle(queue);
+    updateCard();
+    studentNameEl.focus();
+  </script>
+</body>
+</html>
