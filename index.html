@@ -38,7 +38,7 @@
       flex-direction:column;
       gap:16px;
       align-items:center;
-      margin-bottom:200px; /* Más espacio para evitar superposición */
+      margin-bottom:100px; /* Más espacio para evitar superposición */
       margin-top:24px;
       
     }
@@ -83,11 +83,9 @@
       margin-top:200px !important; /* Añade esto para bajar la tarjeta */
     }
     @media (max-width:850px){
-      margin-top:200px
       .board{grid-template-columns:1fr;}
     }
     .cardWrap{
-      margin-top:200px
       perspective:1200px;
       transition:transform .3s ease;
     }
@@ -97,7 +95,7 @@
     .card{
       position:relative;
       width:100%;
-      min-height:600px;
+      min-height:400px;
       background:transparent;
       margin-top:200px
       border-radius:20px;
@@ -136,7 +134,6 @@
       line-height:1.05;
       text-align:center;
       unicode-bidi:plaintext;
-      margin-top:200px
     }
     .pinyin{
       font-size:clamp(24px,4.5vw,36px);
