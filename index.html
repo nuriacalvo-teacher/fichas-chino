@@ -631,17 +631,21 @@
       status('');
       cardEl.classList.remove('flipped');
     }
-    function isCorrect(input, item){
-      const g = norm(input);
-      const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
-      if(mode === 'hanzi-to-es'){
-        const es = item.es.map(norm);
-        return [...pinyins, ...es].includes(g);
-      } else {
-        const hanzi = norm(item.hanzi);
-        return [...pinyins, hanzi].includes(g);
-      }
+function isCorrect(input, item){
+    const gNorm = norm(input);  // versión normalizada (para español y pinyin)
+    const gRaw = input.trim();  // versión cruda (para hanzi)
+    const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
+
+    if(mode === 'hanzi-to-es'){
+    const es = item.es.map(norm);
+    return [...pinyins, ...es].includes(gNorm);
+    } else {
+    // aceptar tanto hanzi "tal cual" como pinyin
+    const hanzi = item.hanzi.trim();
+    return pinyins.includes(gNorm) || gRaw === hanzi;
     }
+  }
+   
     function check(){
       if(!studentNameEl.value.trim() || !studentSurnameEl.value.trim()){
         status('Escribe tu nombre y apellido primero.', 'bad');
