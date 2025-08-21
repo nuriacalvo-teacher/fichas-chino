@@ -695,7 +695,9 @@ function isCorrect(input, item){
     } else {
     // aceptar tanto hanzi "tal cual" como pinyin
     const hanzi = item.hanzi.trim();
-    return pinyins.includes(gNorm) || gRaw === hanzi;
+    const inputHanzi = cleanHanzi(gRaw);
+    const itemHanzi = cleanHanzi(hanzi);
+    return pinyins.includes(gNorm) || inputHanzi === itemHanzi;
     }
   }
    
