@@ -364,7 +364,7 @@
               <label class="muted">Volumen <input id="volume" type="range" min=".2" max="1" step=".1" value="1"/></label>
             </div>
           </details>
-          <p class="keyHelp">Consejo: puedes responder con <em>pinyin</em> (con o sin tildes) o con el significado en español (se aceptan sinónimos sencillos).</p>
+          <p class="keyHelp">Consejo: puedes responder con <em>pinyin</em> (con o sin tildes), con caracteres chinos, o con el significado en español (se aceptan sinónimos sencillos).</p>
         </aside>
       </div>
       <div id="leaderboard" class="leaderboard" style="display:none;">
@@ -465,20 +465,6 @@
       }
       return matrix[b.length][a.length];
     }
-    function toPinyin(input, currentItem) {
-      const trimmedInput = input.trim().replace(/\s+/g, '');
-      // Buscar coincidencia exacta o parcial en DECK
-      const item = DECK.find(item => item.hanzi === trimmedInput || item.hanzi.includes(trimmedInput));
-      if (item) {
-        return item.pinyin;
-      }
-      // Si contiene caracteres chinos, asumir que es la respuesta correcta
-      if (/[\u4e00-\u9fff]/.test(trimmedInput)) {
-        return currentItem.pinyin;
-      }
-      // Si no es chino, devolver el input para autocorrect
-      return input;
-    }
     function autocorrect(input, item) {
       const normInput = norm(input);
       if(mode === 'es-to-hanzi') {
@@ -538,11 +524,7 @@
         const transcript = Array.from(event.results)
           .map(result => result[0].transcript)
           .join('');
-        let processed = transcript;
-        if(mode === 'es-to-hanzi') {
-          processed = toPinyin(transcript, queue[index]);
-        }
-        const corrected = autocorrect(processed, queue[index]);
+        const corrected = mode === 'es-to-hanzi' ? autocorrect(transcript, queue[index]) : autocorrect(transcript, queue[index]);
         guessEl.value = corrected;
         if(event.results[0].isFinal){
           status('');
@@ -636,7 +618,7 @@
       } else {
         frontContent.innerHTML = `<div class="meaning">${item.es[0]}</div>`;
         backContent.innerHTML = `<div class="hanzi">${item.hanzi}</div><div class="pinyin">${item.pinyin}</div>`;
-        guessEl.placeholder = "Escribe o di el pinyin…";
+        guessEl.placeholder = "Escribe o di el pinyin o los caracteres chinos…";
       }
       progressEl.textContent = `${index+1} / ${queue.length}`;
       guessEl.value = '';
@@ -652,7 +634,8 @@
         const es = item.es.map(norm);
         return [...pinyins, ...es].includes(g);
       } else {
-        return pinyins.includes(g);
+        const hanzi = norm(item.hanzi);
+        return [...pinyins, hanzi].includes(g);
       }
     }
     function check(){
