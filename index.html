@@ -448,6 +448,51 @@
     const btnCopyResults = $('#btnCopyResults');
     const leaderboardEl = $('#leaderboard');
     const leaderboardBodyEl = $('#leaderboardBody');
+    // Autocorrección
+    function levenshtein(a, b) {
+      const matrix = Array(b.length + 1).fill().map(() => Array(a.length + 1).fill(0));
+      for(let i = 0; i <= a.length; i++) matrix[0][i] = i;
+      for(let j = 0; j <= b.length; j++) matrix[j][0] = j;
+      for(let j = 1; j <= b.length; j++) {
+        for(let i = 1; i <= a.length; i++) {
+          const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+          matrix[j][i] = Math.min(
+            matrix[j - 1][i] + 1, // eliminación
+            matrix[j][i - 1] + 1, // inserción
+            matrix[j - 1][i - 1] + cost // sustitución
+          );
+        }
+      }
+      return matrix[b.length][a.length];
+    }
+    function autocorrect(input, item) {
+      const normInput = norm(input);
+      if(mode === 'es-to-hanzi') {
+        const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
+        let closest = pinyins[0];
+        let minDistance = levenshtein(normInput, pinyins[0]);
+        for(const pinyin of pinyins) {
+          const distance = levenshtein(normInput, pinyin);
+          if(distance < minDistance) {
+            minDistance = distance;
+            closest = pinyin;
+          }
+        }
+        return minDistance <= Math.ceil(pinyins[0].length / 2) ? item.pinyin : input;
+      } else {
+        const meanings = item.es.map(norm);
+        let closest = meanings[0];
+        let minDistance = levenshtein(normInput, meanings[0]);
+        for(const meaning of meanings) {
+          const distance = levenshtein(normInput, meaning);
+          if(distance < minDistance) {
+            minDistance = distance;
+            closest = meaning;
+          }
+        }
+        return minDistance <= Math.ceil(meanings[0].length / 2) ? item.es[meanings.indexOf(closest)] : input;
+      }
+    }
     // Speech Synthesis
     function speak(text){
       if(!('speechSynthesis' in window)){
@@ -473,13 +518,14 @@
     let recognition = SpeechRecognition ? new SpeechRecognition() : null;
     if(recognition){
       recognition.continuous = false;
-      recognition.interimResults = true; // Activar resultados parciales para respuesta más rápida
+      recognition.interimResults = true;
       recognition.maxAlternatives = 1;
       recognition.onresult = (event) => {
         const transcript = Array.from(event.results)
           .map(result => result[0].transcript)
           .join('');
-        guessEl.value = transcript;
+        const corrected = autocorrect(transcript, queue[index]);
+        guessEl.value = corrected;
         if(event.results[0].isFinal){
           status('');
           btnVoice.classList.remove('listening');
