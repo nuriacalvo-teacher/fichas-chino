@@ -470,36 +470,33 @@
       return matrix[b.length][a.length];
     }
     function autocorrect(input, item) {
-  const normInput = norm(input);
-
-  if (mode === 'es-to-hanzi') {
-    // Si el usuario dijo/escribió hanzi, NO los conviertas a pinyin.
-    if (hasHanzi(input)) {
-      // Devuelve hanzi simplificado y sin espacios/puntuación para evitar falsos negativos.
-      return cleanHanzi(toSimplified(input));
+      const normInput = norm(input);
+      if(mode === 'es-to-hanzi') {
+        const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
+        let closest = pinyins[0];
+        let minDistance = levenshtein(normInput, pinyins[0]);
+        for(const pinyin of pinyins) {
+          const distance = levenshtein(normInput, pinyin);
+          if(distance < minDistance) {
+            minDistance = distance;
+            closest = pinyin;
+          }
+        }
+        return minDistance <= Math.ceil(pinyins[0].length / 2) ? item.pinyin : input;
+      } else {
+        const meanings = item.es.map(norm);
+        let closest = meanings[0];
+        let minDistance = levenshtein(normInput, meanings[0]);
+        for(const meaning of meanings) {
+          const distance = levenshtein(normInput, meaning);
+          if(distance < minDistance) {
+            minDistance = distance;
+            closest = meaning;
+          }
+        }
+        return minDistance <= Math.ceil(meanings[0].length / 2) ? item.es[meanings.indexOf(closest)] : input;
+      }
     }
-    // Si no hay hanzi, intentamos ayudar con pinyin (con/sin espacios)
-    const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
-    let closest = pinyins[0];
-    let minDistance = levenshtein(normInput, pinyins[0]);
-    for (const p of pinyins) {
-      const d = levenshtein(normInput, p);
-      if (d < minDistance) { minDistance = d; closest = p; }
-    }
-    return minDistance <= Math.ceil(pinyins[0].length / 2) ? item.pinyin : input;
-  } else {
-    // hanzi-to-es: igual que tenías (autocorrección hacia español sencillo)
-    const meanings = item.es.map(norm);
-    let closest = meanings[0];
-    let minDistance = levenshtein(normInput, meanings[0]);
-    for (const meaning of meanings) {
-      const d = levenshtein(normInput, meaning);
-      if (d < minDistance) { minDistance = d; closest = meaning; }
-    }
-    return minDistance <= Math.ceil(meanings[0].length / 2) ? item.es[meanings.indexOf(closest)] : input;
-  }
-}
-
     // Speech Synthesis
     function speak(text){
       if(!('speechSynthesis' in window)){
@@ -588,37 +585,9 @@
     function stripAccents(s){
       return s.normalize('NFD').replace(/\p{Diacritic}/gu,'');
     }
-function norm(s){
-  return stripAccents(
-    String(s)
-      .toLowerCase()
-      .trim()
-      .replace(/[!¡¿?.,;:]/g,'')
-  );
-}
-
-// ==== Hanzi helpers ====
-// ¿Contiene caracteres chinos?
-function hasHanzi(s){ 
-  return /[\p{Script=Han}]/u.test(String(s)); 
-}
-
-// Quita TODA la puntuación (incluida CJK) y espacios (incluye espacio ideográfico \u3000)
-function cleanHanzi(s){ 
-  return String(s).replace(/\p{P}|\s/gu,''); 
-}
-
-// Mapa muy básico Tradicional -> Simplificado (amplía si lo necesitas)
-const T2S_MAP = {
-  '媽':'妈','馬':'马','貓':'猫','魚':'鱼','課':'课','們':'们','對':'对','關':'关','係':'系','現':'现','讀':'读',
-  '謝':'谢','請':'请','後':'后','臺':'台','機':'机','愛':'爱','學':'学','點':'点','為':'为','這':'这','說':'说',
-  '誰':'谁','國':'国','聽':'听','問':'问','開':'开','門':'门','車':'车','電':'电','時':'时'
-};
-
-function toSimplified(s){ 
-  return String(s).split('').map(ch => T2S_MAP[ch] || ch).join(''); 
-}
-
+    function norm(s){
+      return stripAccents(String(s).toLowerCase().trim().replace(/[!¡¿?.,;:]/g,''));
+    }
     function shuffle(arr){
       for(let i=arr.length-1;i>0;i--){
         const j=Math.floor(Math.random()*(i+1));
@@ -663,21 +632,19 @@ function toSimplified(s){
       cardEl.classList.remove('flipped');
     }
 function isCorrect(input, item){
-  const gNorm = norm(input);                          // para español/pinyin
-  const gHanzi = cleanHanzi(toSimplified(input));     // hanzi limpio y simplificado
-  const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
+    const gNorm = norm(input);  // versión normalizada (para español y pinyin)
+    const gRaw = input.trim();  // versión cruda (para hanzi)
+    const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
 
-  if (mode === 'hanzi-to-es'){
+    if(mode === 'hanzi-to-es'){
     const es = item.es.map(norm);
     return [...pinyins, ...es].includes(gNorm);
-  } else {
-    // ✅ Acepta respuesta en hanzi (con/ sin espacios / con puntuación / en tradicional)
-    if (gHanzi === item.hanzi) return true;
-    // ✅ Y también acepta pinyin
-    return pinyins.includes(gNorm);
+    } else {
+    // aceptar tanto hanzi "tal cual" como pinyin
+    const hanzi = item.hanzi.trim();
+    return pinyins.includes(gNorm) || gRaw === hanzi;
+    }
   }
-}
-
    
     function check(){
       if(!studentNameEl.value.trim() || !studentSurnameEl.value.trim()){
