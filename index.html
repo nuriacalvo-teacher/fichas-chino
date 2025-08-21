@@ -465,10 +465,19 @@
       }
       return matrix[b.length][a.length];
     }
-    function toPinyin(input) {
-      const trimmedInput = input.trim();
-      const item = DECK.find(item => item.hanzi === trimmedInput);
-      return item ? item.pinyin : input;
+    function toPinyin(input, currentItem) {
+      const trimmedInput = input.trim().replace(/\s+/g, '');
+      // Buscar coincidencia exacta o parcial en DECK
+      const item = DECK.find(item => item.hanzi === trimmedInput || item.hanzi.includes(trimmedInput));
+      if (item) {
+        return item.pinyin;
+      }
+      // Si contiene caracteres chinos, asumir que es la respuesta correcta
+      if (/[\u4e00-\u9fff]/.test(trimmedInput)) {
+        return currentItem.pinyin;
+      }
+      // Si no es chino, devolver el input para autocorrect
+      return input;
     }
     function autocorrect(input, item) {
       const normInput = norm(input);
@@ -531,7 +540,7 @@
           .join('');
         let processed = transcript;
         if(mode === 'es-to-hanzi') {
-          processed = toPinyin(transcript);
+          processed = toPinyin(transcript, queue[index]);
         }
         const corrected = autocorrect(processed, queue[index]);
         guessEl.value = corrected;
