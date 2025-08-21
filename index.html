@@ -76,7 +76,6 @@
     }
     .board{
       display:grid;
-      margin-top: 100px; /* aumenta este valor para bajar la tarjeta */
       grid-template-columns:1.2fr .8fr;
       gap:24px;
     }
@@ -466,12 +465,9 @@
       }
       return matrix[b.length][a.length];
     }
-    function cleanText(s) {
-      return String(s).trim().replace(/[\s.,!?;:]+/g, '');
-    }
     function autocorrect(input, item) {
       if(mode === 'es-to-hanzi' && /[\u4e00-\u9fff]/.test(input)) {
-        return cleanText(input); // Devolver caracteres chinos limpios
+        return input.trim().normalize('NFC'); // Devolver caracteres chinos sin cambios, solo con trim y normalización
       }
       const normInput = norm(input);
       if(mode === 'es-to-hanzi') {
@@ -531,7 +527,7 @@
         const transcript = Array.from(event.results)
           .map(result => result[0].transcript)
           .join('');
-        const cleanedTranscript = cleanText(transcript);
+        const cleanedTranscript = /[\u4e00-\u9fff]/.test(transcript) ? transcript.trim().normalize('NFC') : transcript.trim();
         const corrected = autocorrect(cleanedTranscript, queue[index]);
         guessEl.value = corrected;
         if(event.results[0].isFinal){
@@ -636,22 +632,31 @@
       cardEl.classList.remove('flipped');
     }
     function isCorrect(input, item){
-      const cleanedInput = cleanText(input);
+      const cleanedInput = input.trim().normalize('NFC');
       const isChinese = /[\u4e00-\u9fff]/.test(cleanedInput);
+      console.log('isCorrect - Input:', cleanedInput, 'Expected Hanzi:', item.hanzi, 'Expected Pinyin:', item.pinyin);
+      console.log('isCorrect - Input Unicode:', cleanedInput.split('').map(c => c.charCodeAt(0).toString(16)).join(' '));
+      console.log('isCorrect - Hanzi Unicode:', item.hanzi.split('').map(c => c.charCodeAt(0).toString(16)).join(' '));
       if(mode === 'es-to-hanzi') {
         if(isChinese) {
-          const cleanedHanzi = cleanText(item.hanzi);
-          return cleanedInput === cleanedHanzi;
+          const cleanedHanzi = item.hanzi.trim().normalize('NFC');
+          const isMatch = cleanedInput === cleanedHanzi;
+          console.log('isCorrect - Chinese Comparison:', isMatch, 'Input:', cleanedInput, 'Hanzi:', cleanedHanzi);
+          return isMatch;
         } else {
           const normInput = norm(input);
           const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
-          return pinyins.includes(normInput);
+          const isPinyinMatch = pinyins.includes(normInput);
+          console.log('isCorrect - Pinyin Comparison:', isPinyinMatch, 'Normalized Input:', normInput, 'Pinyins:', pinyins);
+          return isPinyinMatch;
         }
       } else {
         const normInput = norm(input);
         const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
         const es = item.es.map(norm);
-        return [...pinyins, ...es].includes(normInput);
+        const isMatch = [...pinyins, ...es].includes(normInput);
+        console.log('isCorrect - Hanzi-to-es Comparison:', isMatch, 'Normalized Input:', normInput, 'Expected:', [...pinyins, ...es]);
+        return isMatch;
       }
     }
     function check(){
@@ -672,8 +677,8 @@
         fails++;
         failsEl.textContent = fails;
         const wrongMsg = mode === 'hanzi-to-es' 
-          ? `No exactamente. Era: ${item.es[0]} · ${item.pinyin} (-${FAIL_PENALTY.toFixed(1)})`
-          : `No exactamente. Era: ${item.pinyin} · ${item.hanzi} (-${FAIL_PENALTY.toFixed(1)})`
+          ? `No exactamente. Era: ${item.es[0]} o ${item.pinyin} (-${FAIL_PENALTY.toFixed(1)})`
+          : `No exactamente. Era: ${item.pinyin} o ${item.hanzi} (-${FAIL_PENALTY.toFixed(1)})`;
         status(wrongMsg, 'bad');
         wrongSet.add(item.hanzi);
       }
