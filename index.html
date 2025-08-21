@@ -465,6 +465,11 @@
       }
       return matrix[b.length][a.length];
     }
+    function toPinyin(input) {
+      const trimmedInput = input.trim();
+      const item = DECK.find(item => item.hanzi === trimmedInput);
+      return item ? item.pinyin : input;
+    }
     function autocorrect(input, item) {
       const normInput = norm(input);
       if(mode === 'es-to-hanzi') {
@@ -524,7 +529,11 @@
         const transcript = Array.from(event.results)
           .map(result => result[0].transcript)
           .join('');
-        const corrected = autocorrect(transcript, queue[index]);
+        let processed = transcript;
+        if(mode === 'es-to-hanzi') {
+          processed = toPinyin(transcript);
+        }
+        const corrected = autocorrect(processed, queue[index]);
         guessEl.value = corrected;
         if(event.results[0].isFinal){
           status('');
