@@ -636,13 +636,16 @@
     }
     function isCorrect(input, item){
       const cleanedInput = cleanText(input);
+      const isChinese = /[\u4e00-\u9fff]/.test(cleanedInput);
       if(mode === 'es-to-hanzi') {
-        if(/[\u4e00-\u9fff]/.test(cleanedInput)) {
-          return cleanedInput === cleanText(item.hanzi);
+        if(isChinese) {
+          const cleanedHanzi = cleanText(item.hanzi);
+          return cleanedInput === cleanedHanzi;
+        } else {
+          const normInput = norm(input);
+          const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
+          return pinyins.includes(normInput);
         }
-        const normInput = norm(input);
-        const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
-        return pinyins.includes(normInput);
       } else {
         const normInput = norm(input);
         const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
@@ -669,7 +672,7 @@
         failsEl.textContent = fails;
         const wrongMsg = mode === 'hanzi-to-es' 
           ? `No exactamente. Era: ${item.es[0]} · ${item.pinyin} (-${FAIL_PENALTY.toFixed(1)})`
-          : `No exactamente. Era: ${item.pinyin} · ${item.hanzi} (-${FAIL_PENALTY.toFixed(1)})`;
+          : `No exactamente. Era: ${item.pinyin} · ${item.hanzi} (-${FAIL_PENALTY.toFixed(1)})`
         status(wrongMsg, 'bad');
         wrongSet.add(item.hanzi);
       }
