@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -391,11 +391,13 @@
     </main>
     <footer>© 2025 Nuria Calvo</footer>
   </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.18.2/dist/index.js"></script>
   <script>
     // === Banco de cartas ===
     const DECK = [
       {hanzi:"你好", pinyin:"nǐ hǎo", es:["hola","hola!","buenas"]},
-      {hanzi:"您好", pinyin:"nín hǎo", es:["hola","hola (a usted)","buenos días","hola formal","hola a usted"]},
+      {hanzi:"您好", pinyin:"nín hǎo", es:["hola usted","hola (a usted)","buenos días","hola formal","hola a usted"]},
       {hanzi:"你们好", pinyin:"nǐmen hǎo", es:["hola (a vosotros)","hola a vosotros","hola a ustedes","hola todos"]},
       {hanzi:"对不起", pinyin:"duìbuqǐ", es:["lo siento","disculpa","perdón"]},
       {hanzi:"没关系", pinyin:"méi guānxi", es:["no pasa nada","está bien","tranquilo","no hay problema"]},
@@ -407,10 +409,10 @@
       {hanzi:"二", pinyin:"èr", es:["dos", "2"]},
       {hanzi:"十", pinyin:"shí", es:["diez", "10"]},
       {hanzi:"六", pinyin:"liù", es:["seis", "6"]},
-      {hanzi:"上课", pinyin:"shàng kè", es:["empieza la clase","¡empieza la clase!","empieza clase"]},
-      {hanzi:"下课", pinyin:"xià kè", es:["acaba la clase","¡acaba la clase!","termina la clase"]},
+      {hanzi:"上课", pinyin:"shàng kè", es:["empieza la clase","la clase empieza","empieza clase"]},
+      {hanzi:"下课", pinyin:"xià kè", es:["acaba la clase","la clase acabó","termina la clase"]},
       {hanzi:"现在休息", pinyin:"xiànzài xiūxi", es:["tomad un descanso ahora","descanso ahora","ahora descanso"]},
-      {hanzi:"看黑板", pinyin:"kàn hēibǎn", es:["mirad a la pizarra","miren la pizarra","mirar la pizarra"]},
+      {hanzi:"看黑板", pinyin:"kàn hēibǎn", es:["mirad a la pizarra","mirad la pizarra","mira la pizarra"]},
       {hanzi:"跟我读", pinyin:"gēn wǒ dú", es:["leed detrás de mí","leed conmigo","repitan conmigo"]},
       {hanzi:"工", pinyin:"gōng", es:["trabajo","obra"]},
       {hanzi:"不", pinyin:"bù", es:["no"]},
@@ -524,19 +526,28 @@
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
-      recognition.onresult = (event) => {
-        const transcript = Array.from(event.results)
-          .map(result => result[0].transcript)
-          .join('');
-        const corrected = mode === 'es-to-hanzi' ? autocorrect(transcript, queue[index]) : autocorrect(transcript, queue[index]);
-        guessEl.value = corrected;
-        if(event.results[0].isFinal){
-          status('');
-          btnVoice.classList.remove('listening');
-          btnVoice.disabled = false;
-          check();
-        }
-      };
+     
+  recognition.onresult = (event) => {
+  const transcript = Array.from(event.results)
+    .map(r => r[0].transcript)
+    .join('');
+
+  // Si estamos en Español → Chino, convierte Hanzi a pinyin antes de autocorregir
+  const preprocessed = (mode === 'es-to-hanzi')
+    ? hanziToPinyin(transcript)
+    : transcript;
+
+  const corrected = autocorrect(preprocessed, queue[index]);
+  guessEl.value = corrected;
+
+  if (event.results[0].isFinal) {
+    status('');
+    btnVoice.classList.remove('listening');
+    btnVoice.disabled = false;
+    check();
+  }
+};
+
       recognition.onerror = (event) => {
         btnVoice.classList.remove('listening');
         btnVoice.disabled = false;
@@ -582,12 +593,18 @@
           }
         });
     }
-    function stripAccents(s){
-      return s.normalize('NFD').replace(/\p{Diacritic}/gu,'');
-    }
+    function stripAccents(s) {
+      return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
     function norm(s){
-      return stripAccents(String(s).toLowerCase().trim().replace(/[!¡¿?.,;:]/g,''));
-    }
+      return stripAccents(
+      String(s)
+        .toLowerCase()
+        .trim()
+        .replace(/[!¡¿?.,;:]/g,'')
+    );
+}
     function shuffle(arr){
       for(let i=arr.length-1;i>0;i--){
         const j=Math.floor(Math.random()*(i+1));
@@ -631,6 +648,42 @@
       status('');
       cardEl.classList.remove('flipped');
     }
+
+// ==== Hanzi helpers ====
+// ¿Contiene caracteres chinos?
+function hasHanzi(s){ 
+  return /[\p{Script=Han}]/u.test(String(s)); 
+}
+
+// Quita TODA la puntuación (incluida CJK) y espacios
+function cleanHanzi(s){ 
+  return String(s).replace(/\p{P}|\s/gu,''); 
+}
+
+// Mapa muy básico Tradicional -> Simplificado
+const T2S_MAP = {
+  '媽':'妈','馬':'马','貓':'猫','魚':'鱼','課':'课','們':'们','對':'对','關':'关','係':'系','現':'现','讀':'读',
+  '謝':'谢','請':'请','後':'后','臺':'台','機':'机','愛':'爱','學':'学','點':'点','為':'为','這':'这','說':'说',
+  '誰':'谁','國':'国','聽':'听','問':'问','開':'开','門':'门','車':'车','電':'电','時':'时'
+};
+function toSimplified(s){ 
+  return String(s).split('').map(ch => T2S_MAP[ch] || ch).join(''); 
+}
+
+// ==== Hanzi → Pinyin con pinyin-pro ====
+const HAN_RE = /[\p{Script=Han}]/u;
+function hanziToPinyin(text){
+  if(!text) return '';
+  const api = window.pinyinPro && window.pinyinPro.pinyin;
+  if (api && HAN_RE.test(text)) {
+    // pinyin con tildes
+    return api(text, { toneType: 'marks' });
+    // o sin tildes:
+    // return api(text, { toneType: 'none' });
+  }
+  return text;
+}
+    
 function isCorrect(input, item){
     const gNorm = norm(input);  // versión normalizada (para español y pinyin)
     const gRaw = input.trim();  // versión cruda (para hanzi)
