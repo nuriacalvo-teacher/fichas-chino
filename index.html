@@ -527,7 +527,7 @@
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
      
-  recognition.onresult = (event) => {
+      recognition.onresult = (event) => {
   const transcript = Array.from(event.results)
     .map(r => r[0].transcript)
     .join('');
@@ -537,8 +537,10 @@
     ? hanziToPinyin(transcript)
     : transcript;
 
+  guessEl.value = preprocessed; // <-- CAMBIA ESTO para mostrar SIEMPRE el pinyin
+
   const corrected = autocorrect(preprocessed, queue[index]);
-  guessEl.value = corrected;
+  // guessEl.value = corrected; // <-- OPCIONAL: si quieres autocorrección, pero mejor deja solo el pinyin
 
   if (event.results[0].isFinal) {
     status('');
