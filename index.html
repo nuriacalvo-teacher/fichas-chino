@@ -364,7 +364,7 @@
               <label class="muted">Volumen <input id="volume" type="range" min=".2" max="1" step=".1" value="1"/></label>
             </div>
           </details>
-          <p class="keyHelp">Consejo: puedes responder con <em>pinyin</em> (con o sin tildes), con caracteres chinos, o con el significado en español (se aceptan sinónimos sencillos).</p>
+          <p class="keyHelp">Consejo: en Español a Chino, responde con pinyin (con o sin tildes) o caracteres chinos. En Chino a Español, usa el significado en español o pinyin.</p>
         </aside>
       </div>
       <div id="leaderboard" class="leaderboard" style="display:none;">
@@ -465,7 +465,13 @@
       }
       return matrix[b.length][a.length];
     }
+    function cleanText(s) {
+      return String(s).trim().replace(/[\s.,!?;:]+/g, '');
+    }
     function autocorrect(input, item) {
+      if(mode === 'es-to-hanzi' && /[\u4e00-\u9fff]/.test(input)) {
+        return cleanText(input); // Devolver caracteres chinos limpios
+      }
       const normInput = norm(input);
       if(mode === 'es-to-hanzi') {
         const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
@@ -524,7 +530,8 @@
         const transcript = Array.from(event.results)
           .map(result => result[0].transcript)
           .join('');
-        const corrected = mode === 'es-to-hanzi' ? autocorrect(transcript, queue[index]) : autocorrect(transcript, queue[index]);
+        const cleanedTranscript = cleanText(transcript);
+        const corrected = autocorrect(cleanedTranscript, queue[index]);
         guessEl.value = corrected;
         if(event.results[0].isFinal){
           status('');
@@ -628,14 +635,19 @@
       cardEl.classList.remove('flipped');
     }
     function isCorrect(input, item){
-      const g = norm(input);
-      const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
-      if(mode === 'hanzi-to-es'){
-        const es = item.es.map(norm);
-        return [...pinyins, ...es].includes(g);
+      const cleanedInput = cleanText(input);
+      if(mode === 'es-to-hanzi') {
+        if(/[\u4e00-\u9fff]/.test(cleanedInput)) {
+          return cleanedInput === cleanText(item.hanzi);
+        }
+        const normInput = norm(input);
+        const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
+        return pinyins.includes(normInput);
       } else {
-        const hanzi = norm(item.hanzi);
-        return [...pinyins, hanzi].includes(g);
+        const normInput = norm(input);
+        const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
+        const es = item.es.map(norm);
+        return [...pinyins, ...es].includes(normInput);
       }
     }
     function check(){
