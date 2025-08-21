@@ -364,7 +364,7 @@
               <label class="muted">Volumen <input id="volume" type="range" min=".2" max="1" step=".1" value="1"/></label>
             </div>
           </details>
-          <p class="keyHelp">Consejo: en Español a Chino, responde con pinyin (con o sin tildes) o caracteres chinos. En Chino a Español, usa el significado en español o pinyin.</p>
+          <p class="keyHelp">Consejo: puedes responder con <em>pinyin</em> (con o sin tildes), con caracteres chinos, o con el significado en español (se aceptan sinónimos sencillos).</p>
         </aside>
       </div>
       <div id="leaderboard" class="leaderboard" style="display:none;">
@@ -466,9 +466,6 @@
       return matrix[b.length][a.length];
     }
     function autocorrect(input, item) {
-      if(mode === 'es-to-hanzi' && /[\u4e00-\u9fff]/.test(input)) {
-        return input.trim().normalize('NFC'); // Devolver caracteres chinos sin cambios, solo con trim y normalización
-      }
       const normInput = norm(input);
       if(mode === 'es-to-hanzi') {
         const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
@@ -527,8 +524,7 @@
         const transcript = Array.from(event.results)
           .map(result => result[0].transcript)
           .join('');
-        const cleanedTranscript = /[\u4e00-\u9fff]/.test(transcript) ? transcript.trim().normalize('NFC') : transcript.trim();
-        const corrected = autocorrect(cleanedTranscript, queue[index]);
+        const corrected = mode === 'es-to-hanzi' ? autocorrect(transcript, queue[index]) : autocorrect(transcript, queue[index]);
         guessEl.value = corrected;
         if(event.results[0].isFinal){
           status('');
@@ -632,31 +628,14 @@
       cardEl.classList.remove('flipped');
     }
     function isCorrect(input, item){
-      const cleanedInput = input.trim().normalize('NFC');
-      const isChinese = /[\u4e00-\u9fff]/.test(cleanedInput);
-      console.log('isCorrect - Input:', cleanedInput, 'Expected Hanzi:', item.hanzi, 'Expected Pinyin:', item.pinyin);
-      console.log('isCorrect - Input Unicode:', cleanedInput.split('').map(c => c.charCodeAt(0).toString(16)).join(' '));
-      console.log('isCorrect - Hanzi Unicode:', item.hanzi.split('').map(c => c.charCodeAt(0).toString(16)).join(' '));
-      if(mode === 'es-to-hanzi') {
-        if(isChinese) {
-          const cleanedHanzi = item.hanzi.trim().normalize('NFC');
-          const isMatch = cleanedInput === cleanedHanzi;
-          console.log('isCorrect - Chinese Comparison:', isMatch, 'Input:', cleanedInput, 'Hanzi:', cleanedHanzi);
-          return isMatch;
-        } else {
-          const normInput = norm(input);
-          const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
-          const isPinyinMatch = pinyins.includes(normInput);
-          console.log('isCorrect - Pinyin Comparison:', isPinyinMatch, 'Normalized Input:', normInput, 'Pinyins:', pinyins);
-          return isPinyinMatch;
-        }
-      } else {
-        const normInput = norm(input);
-        const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
+      const g = norm(input);
+      const pinyins = [item.pinyin, item.pinyin.replace(/\s+/g,'')].map(norm);
+      if(mode === 'hanzi-to-es'){
         const es = item.es.map(norm);
-        const isMatch = [...pinyins, ...es].includes(normInput);
-        console.log('isCorrect - Hanzi-to-es Comparison:', isMatch, 'Normalized Input:', normInput, 'Expected:', [...pinyins, ...es]);
-        return isMatch;
+        return [...pinyins, ...es].includes(g);
+      } else {
+        const hanzi = norm(item.hanzi);
+        return [...pinyins, hanzi].includes(g);
       }
     }
     function check(){
@@ -677,8 +656,8 @@
         fails++;
         failsEl.textContent = fails;
         const wrongMsg = mode === 'hanzi-to-es' 
-          ? `No exactamente. Era: ${item.es[0]} o ${item.pinyin} (-${FAIL_PENALTY.toFixed(1)})`
-          : `No exactamente. Era: ${item.pinyin} o ${item.hanzi} (-${FAIL_PENALTY.toFixed(1)})`;
+          ? `No exactamente. Era: ${item.es[0]} · ${item.pinyin} (-${FAIL_PENALTY.toFixed(1)})`
+          : `No exactamente. Era: ${item.pinyin} · ${item.hanzi} (-${FAIL_PENALTY.toFixed(1)})`;
         status(wrongMsg, 'bad');
         wrongSet.add(item.hanzi);
       }
